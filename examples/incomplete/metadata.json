@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-01-01T00:00:00.000Z",
+  "packages": [
+    {
+      "name": "alpha",
+      "historyCompleteFrom": null,
+      "releases": [
+        { "version": "1.0.0", "publishedAt": "2025-12-31T00:00:00.000Z" }
+      ]
+    }
+  ]
+}

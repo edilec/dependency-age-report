@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, symlinkSync, linkSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, symlinkSync, linkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { cleanDocuments } from './core.test.mjs';
+import { cleanDocuments } from '../support/fixture-documents.mjs';
 
 const CLI = fileURLToPath(new URL('../bin/dependency-age-report.mjs', import.meta.url));
+const GUARD = fileURLToPath(new URL('../support/deny-network.mjs', import.meta.url));
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'edilec-age-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -19,7 +20,7 @@ function fixture(t) {
   return { root, lock, snapshot };
 }
 function run(...args) {
-  const result = spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', timeout: 10000 });
+  const result = spawnSync(process.execPath, ['--import', GUARD, CLI, ...args], { encoding: 'utf8', timeout: 10000 });
   if (result.error) throw result.error;
   return result;
 }
@@ -126,4 +127,19 @@ test('untrusted named path canary is never rendered into JSON or human output', 
   const result = run('--root', f.root, '--lock', join(f.root, canary), '--snapshot', f.snapshot);
   assert.equal(result.status, 2);
   assert.equal(`${result.stdout}${result.stderr}`.includes(canary), false);
+});
+
+test('documented clean, review and incomplete examples are runnable', () => {
+  const base = fileURLToPath(new URL('../examples/', import.meta.url));
+  const rows = [
+    ['clean', [], 0, 'pass'],
+    ['failing', ['--review-after-days', '30'], 1, 'fail'],
+    ['incomplete', [], 2, 'incomplete'],
+  ];
+  for (const [directory, extra, exit, status] of rows) {
+    const root = join(base, directory);
+    const result = run('--root', root, '--lock', 'package-lock.json', '--snapshot', 'metadata.json', ...extra);
+    assert.equal(result.status, exit, directory);
+    assert.equal(JSON.parse(result.stdout).status, status, directory);
+  }
 });

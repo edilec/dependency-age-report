@@ -1,23 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { reportDependencyAge, TOOL_ID } from '../src/index.mjs';
-
-export const cleanDocuments = () => ({
-  locks: [{
-    name: 'synthetic-app', version: '1.0.0', lockfileVersion: 3, requires: true,
-    packages: {
-      '': { name: 'synthetic-app', version: '1.0.0' },
-      'node_modules/alpha': { version: '1.0.0', resolved: 'saved-export' },
-    },
-  }],
-  snapshot: {
-    schemaVersion: 1, capturedAt: '2026-01-01T00:00:00.000Z',
-    packages: [{
-      name: 'alpha', historyCompleteFrom: '2024-01-01T00:00:00.000Z',
-      releases: [{ version: '1.0.0', publishedAt: '2025-12-31T00:00:00.000Z' }],
-    }],
-  },
-});
+import { cleanDocuments } from '../support/fixture-documents.mjs';
 
 test('good saved v3 lock and complete snapshot report recorded-release age at snapshot', () => {
   assert.equal(TOOL_ID, 'dependency-age-report');
@@ -132,6 +116,20 @@ test('dot traversal is not a supported package-lock member path', () => {
   assert.equal(report.findings.some(f => f.ruleId === 'lock-invalid'), true);
 });
 
+test('package identity accepts 128 units but refuses 129 before absence inference', () => {
+  const at = cleanDocuments();
+  const name = `a${'b'.repeat(127)}`;
+  at.locks[0].packages = { '': {}, [`node_modules/${name}`]: { version: '1.0.0' } };
+  at.snapshot.packages[0].name = name;
+  assert.equal(reportDependencyAge(at, { now: () => 0 }).status, 'pass');
+  const over = cleanDocuments();
+  over.locks[0].packages = { '': {}, [`node_modules/${name}c`]: { version: '1.0.0' } };
+  const report = reportDependencyAge(over, { now: () => 0 });
+  assert.equal(report.status, 'incomplete');
+  assert.equal(report.findings.some(f => f.ruleId === 'lock-invalid'), true);
+  assert.equal(report.findings.some(f => f.ruleId === 'snapshot-package-missing'), false);
+});
+
 test('scoped and nested v3 members are checked in code-unit key order', () => {
   const documents = cleanDocuments();
   documents.locks[0].packages = {
@@ -204,6 +202,17 @@ test('invalid snapshot index cannot establish a package absence', () => {
 test('unsupported lock member cannot be dropped while another member passes', () => {
   const documents = cleanDocuments();
   documents.locks[0].packages['node_modules/local'] = { version: 'file:../local' };
+  const report = reportDependencyAge(documents, { now: () => 0 });
+  assert.equal(report.status, 'incomplete');
+  assert.equal(report.findings.some(f => f.ruleId === 'lock-invalid'), true);
+  assert.equal(report.summary.checked, 0);
+});
+
+test('local file resolution is not a public exact-release assertion', () => {
+  const documents = cleanDocuments();
+  documents.locks[0].packages['node_modules/alpha'].resolved = 'https://registry.invalid/alpha/-/alpha-1.0.0.tgz';
+  assert.equal(reportDependencyAge(documents, { now: () => 0 }).status, 'pass');
+  documents.locks[0].packages['node_modules/alpha'].resolved = 'file:../alpha';
   const report = reportDependencyAge(documents, { now: () => 0 });
   assert.equal(report.status, 'incomplete');
   assert.equal(report.findings.some(f => f.ruleId === 'lock-invalid'), true);

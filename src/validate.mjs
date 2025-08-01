@@ -66,8 +66,11 @@ export function validateLock(input, limits) {
     const pointer = `/packages/@${ordinal}`;
     if (!KEY.test(key) || !object(entry) || entry.link === true ||
         typeof entry.version !== 'string' || !VERSION.test(entry.version)) invalid(pointer);
+    if (Object.hasOwn(entry, 'resolved') &&
+        (typeof entry.resolved !== 'string' || !/^https?:\/\//iu.test(entry.resolved))) invalid(pointer);
     const name = key.slice(key.lastIndexOf('/node_modules/') + 14).replace(/^node_modules\//u, '');
-    if (!NAME.test(name) || (Object.hasOwn(entry, 'name') && entry.name !== name)) invalid(pointer);
+    if (!NAME.test(name) || name.length > 128 ||
+        (Object.hasOwn(entry, 'name') && entry.name !== name)) invalid(pointer);
     members.push({ name, version: entry.version, ordinal });
   }
   return members;
