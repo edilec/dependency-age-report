@@ -254,6 +254,20 @@ test('local file resolution is not a public exact-release assertion', () => {
   assert.equal(report.summary.checked, 0);
 });
 
+test('HTTP locator without a host is unsupported lock evidence', () => {
+  const documents = cleanDocuments();
+  documents.locks[0].packages['node_modules/alpha'].resolved = 'https://registry.invalid/alpha.tgz';
+  assert.equal(reportDependencyAge(documents, { now: () => 0 }).status, 'pass');
+  for (const locator of ['https://', 'http://', 'https://?token=SYNTHETIC_SECRET_CANARY']) {
+    documents.locks[0].packages['node_modules/alpha'].resolved = locator;
+    const report = reportDependencyAge(documents, { now: () => 0 });
+    assert.equal(report.status, 'incomplete');
+    assert.equal(report.summary.checked, 0);
+    assert.equal(report.findings.some(f => f.ruleId === 'lock-invalid'), true);
+    assert.equal(JSON.stringify(report).includes('SYNTHETIC_SECRET_CANARY'), false);
+  }
+});
+
 test('opaque package/version canaries never reach output', () => {
   const documents = cleanDocuments();
   documents.locks[0].packages['node_modules/token-synthetic-secret-canary'] = { version: '2.0.0' };

@@ -14,6 +14,13 @@ export function validDate(value) {
 }
 function object(value) { return value && typeof value === 'object' && !Array.isArray(value); }
 function exactKeys(value, names) { return object(value) && Object.keys(value).length === names.length && Object.keys(value).every(name => names.includes(name)); }
+function httpLocator(value) {
+  if (typeof value !== 'string') return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'http:' || url.protocol === 'https:') && url.host !== '';
+  } catch { return false; }
+}
 
 export function snapshotEvidence(value, { maxDepth = 32, maxNodes = 200000 } = {}) {
   let nodes = 0;
@@ -66,8 +73,7 @@ export function validateLock(input, limits) {
     const pointer = `/packages/@${ordinal}`;
     if (!KEY.test(key) || !object(entry) || entry.link === true ||
         typeof entry.version !== 'string' || !VERSION.test(entry.version)) invalid(pointer);
-    if (Object.hasOwn(entry, 'resolved') &&
-        (typeof entry.resolved !== 'string' || !/^https?:\/\//iu.test(entry.resolved))) invalid(pointer);
+    if (Object.hasOwn(entry, 'resolved') && !httpLocator(entry.resolved)) invalid(pointer);
     const name = key.slice(key.lastIndexOf('/node_modules/') + 14).replace(/^node_modules\//u, '');
     if (!NAME.test(name) || name.length > 128 ||
         (Object.hasOwn(entry, 'name') && entry.name !== name)) invalid(pointer);
