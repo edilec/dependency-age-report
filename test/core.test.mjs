@@ -130,6 +130,23 @@ test('package identity accepts 128 units but refuses 129 before absence inferenc
   assert.equal(report.findings.some(f => f.ruleId === 'snapshot-package-missing'), false);
 });
 
+test('version token accepts 128 units and refuses 129 on either evidence side', () => {
+  const version = `v${'1'.repeat(127)}`;
+  const at = cleanDocuments();
+  at.locks[0].packages['node_modules/alpha'].version = version;
+  at.snapshot.packages[0].releases[0].version = version;
+  assert.equal(reportDependencyAge(at, { now: () => 0 }).status, 'pass');
+  const badLock = cleanDocuments();
+  badLock.locks[0].packages['node_modules/alpha'].version = `${version}2`;
+  assert.equal(reportDependencyAge(badLock, { now: () => 0 }).findings.some(f => f.ruleId === 'lock-invalid'), true);
+  const badSnapshot = cleanDocuments();
+  badSnapshot.snapshot.packages[0].releases[0].version = `${version}2`;
+  const report = reportDependencyAge(badSnapshot, { now: () => 0 });
+  assert.equal(report.status, 'incomplete');
+  assert.equal(report.findings.some(f => f.ruleId === 'snapshot-invalid'), true);
+  assert.equal(report.findings.some(f => f.ruleId === 'snapshot-release-missing'), false);
+});
+
 test('scoped and nested v3 members are checked in code-unit key order', () => {
   const documents = cleanDocuments();
   documents.locks[0].packages = {
@@ -143,6 +160,24 @@ test('scoped and nested v3 members are checked in code-unit key order', () => {
   assert.equal(report.status, 'pass');
   assert.deepEqual(report.packages.map(row => row.location.pointer), ['/packages/@1', '/packages/@2']);
   assert.equal(report.summary.checked, 4);
+});
+
+test('member order follows UTF-16 units, not locale collation', () => {
+  const documents = cleanDocuments();
+  documents.locks[0].packages = {
+    '': {},
+    'node_modules/a_b': { version: '1.0.0' },
+    'node_modules/a-b': { version: '1.0.0' },
+  };
+  documents.snapshot.packages = [
+    { name: 'a_b', historyCompleteFrom: '2024-01-01T00:00:00.000Z',
+      releases: [{ version: '1.0.0', publishedAt: '2025-12-30T00:00:00.000Z' }] },
+    { name: 'a-b', historyCompleteFrom: '2024-01-01T00:00:00.000Z',
+      releases: [{ version: '1.0.0', publishedAt: '2025-12-31T00:00:00.000Z' }] },
+  ];
+  const report = reportDependencyAge(documents, { now: () => 0 });
+  assert.equal(report.status, 'pass');
+  assert.deepEqual(report.packages.map(row => row.recordedReleaseAgeDays), [1, 2]);
 });
 
 test('four distinct locks retain occurrences and fifth exceeds exact cap', () => {

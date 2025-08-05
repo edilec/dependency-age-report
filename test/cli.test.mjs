@@ -129,6 +129,32 @@ test('untrusted named path canary is never rendered into JSON or human output', 
   assert.equal(`${result.stdout}${result.stderr}`.includes(canary), false);
 });
 
+test('CLI lock count, path text and review threshold bounds have both sides', t => {
+  const f = fixture(t);
+  const distinct = [f.lock];
+  for (let index = 1; index < 5; index++) {
+    const path = join(f.root, `lock-${index}.json`);
+    writeFileSync(path, readFileSync(f.lock));
+    distinct.push(path);
+  }
+  const four = run('--root', f.root, ...distinct.slice(0, 4).flatMap(path => ['--lock', path]), '--snapshot', f.snapshot, '--json');
+  assert.equal(four.status, 0);
+  assert.equal(JSON.parse(four.stdout).summary.occurrences, 4);
+  const five = run('--root', f.root, ...distinct.flatMap(path => ['--lock', path]), '--snapshot', f.snapshot, '--json');
+  assert.equal(five.status, 2);
+  assert.equal(five.stdout, '');
+  const pathAt = run('--root', f.root, '--lock', 'x'.repeat(4096), '--snapshot', f.snapshot, '--json');
+  assert.equal(pathAt.status, 2);
+  assert.equal(JSON.parse(pathAt.stdout).status, 'incomplete');
+  const pathOver = run('--root', f.root, '--lock', 'x'.repeat(4097), '--snapshot', f.snapshot, '--json');
+  assert.equal(pathOver.status, 2);
+  assert.equal(pathOver.stdout, '');
+  assert.equal(run(...args(f), '--review-after-days', '36500').status, 0);
+  const over = run(...args(f), '--review-after-days', '36501');
+  assert.equal(over.status, 2);
+  assert.equal(over.stdout, '');
+});
+
 test('documented clean, review and incomplete examples are runnable', () => {
   const base = fileURLToPath(new URL('../examples/', import.meta.url));
   const rows = [

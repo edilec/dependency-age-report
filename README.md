@@ -59,7 +59,7 @@ Warnings make overall status `incomplete`, even beside a proven review candidate
 | 2 | Named evidence incomplete/unsupported (`incomplete`) | JSON report |
 | 2 | Invalid CLI or library configuration | Empty |
 
-Limits: 1–4 lockfiles, 4,194,304 bytes per file, 1,000 installed members per lock (root excluded), 4,000 snapshot packages, 64 releases per package, JSON depth 32 and 200,000 nodes, and a 2,000 ms analysis deadline. A bound accepts exactly N and refuses N+1. Library callers may lower analysis limits but not raise them; the CLI byte bound is separate. The injected clock must be finite and nondecreasing; it bounds work only. Input capture time alone determines ages. The JSON parser refuses duplicate decoded keys and numeric tokens that JavaScript would round into a misleading value.
+Limits: 1–4 lockfiles, 4,194,304 bytes per file, 4,096 units per named input path, 128 units per name or version token, 1,000 installed members per lock (root excluded), 4,000 snapshot packages, 64 releases per package, JSON depth 32 and 200,000 nodes, and a 2,000 ms analysis deadline. A bound accepts exactly N and refuses N+1. Library callers may lower analysis limits but not raise them; the CLI byte bound is separate. The injected clock must be finite and nondecreasing; it bounds work only. Input capture time alone determines ages. The JSON parser refuses duplicate decoded keys and numeric tokens that JavaScript would round into a misleading value.
 
 ## Limits and non-goals
 
