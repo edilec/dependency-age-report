@@ -268,6 +268,20 @@ test('HTTP locator without a host is unsupported lock evidence', () => {
   }
 });
 
+test('only an absent or boolean-false link marker is a non-link member', () => {
+  const documents = cleanDocuments();
+  assert.equal(reportDependencyAge(documents, { now: () => 0 }).status, 'pass');
+  documents.locks[0].packages['node_modules/alpha'].link = false;
+  assert.equal(reportDependencyAge(documents, { now: () => 0 }).status, 'pass');
+  for (const marker of [true, 'true', 1, 0, null, {}]) {
+    documents.locks[0].packages['node_modules/alpha'].link = marker;
+    const report = reportDependencyAge(documents, { now: () => 0 });
+    assert.equal(report.status, 'incomplete');
+    assert.equal(report.summary.checked, 0);
+    assert.equal(report.findings.some(f => f.ruleId === 'lock-invalid'), true);
+  }
+});
+
 test('opaque package/version canaries never reach output', () => {
   const documents = cleanDocuments();
   documents.locks[0].packages['node_modules/token-synthetic-secret-canary'] = { version: '2.0.0' };
