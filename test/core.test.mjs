@@ -87,6 +87,37 @@ test('unsupported lock dialect and root-only lock are incomplete, not vacuous pa
   assert.equal(empty.findings.some(f => f.ruleId === 'no-subject'), true);
 });
 
+test('invalid-only lock never claims there are no installed subjects', () => {
+  const documents = cleanDocuments();
+  documents.locks[0].packages['node_modules/alpha'].link = 'true';
+  const report = reportDependencyAge(documents, { now: () => 0 });
+  assert.equal(report.status, 'incomplete');
+  assert.equal(report.findings.some(f => f.ruleId === 'lock-invalid'), true);
+  assert.equal(report.findings.some(f => f.ruleId === 'no-subject'), false);
+});
+
+test('valid-empty plus invalid lock does not infer no subjects from partial indexes', () => {
+  const documents = cleanDocuments();
+  const invalid = structuredClone(documents.locks[0]);
+  invalid.packages['node_modules/alpha'].link = 1;
+  delete documents.locks[0].packages['node_modules/alpha'];
+  documents.locks.push(invalid);
+  const report = reportDependencyAge(documents, { now: () => 0 });
+  assert.equal(report.status, 'incomplete');
+  assert.equal(report.summary.checked, 0);
+  assert.equal(report.findings.some(f => f.ruleId === 'lock-invalid'), true);
+  assert.equal(report.findings.some(f => f.ruleId === 'no-subject'), false);
+});
+
+test('limit-exceeded lock cannot prove an empty installed set', () => {
+  const documents = cleanDocuments();
+  documents.locks[0].packages['node_modules/beta'] = { version: '1.0.0' };
+  const report = reportDependencyAge(documents, { now: () => 0, limits: { maxMembers: 1 } });
+  assert.equal(report.status, 'incomplete');
+  assert.equal(report.findings.some(f => f.ruleId === 'limit-exceeded'), true);
+  assert.equal(report.findings.some(f => f.ruleId === 'no-subject'), false);
+});
+
 test('1000 installed members are legal and 1001 exceed member cap, excluding root', () => {
   const documents = cleanDocuments();
   const packages = { '': { name: 'synthetic-app', version: '1.0.0' } };

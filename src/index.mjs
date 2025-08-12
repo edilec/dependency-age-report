@@ -111,13 +111,14 @@ export function reportDependencyAge(input, options = {}) {
     if (!(error instanceof EvidenceError)) throw error;
     findings.push(finding(error.code === 'limit-exceeded' ? 'limit-exceeded' : 'snapshot-invalid', 'snapshot', error.pointer));
   }
-  let subjects = 0;
+  let subjects = 0, completeLockIndexes = true;
   for (let lockOrdinal = 0; lockOrdinal < value.locks.length; lockOrdinal++) {
     const file = `lock-${lockOrdinal}`;
     let members;
     try { members = validateLock(value.locks[lockOrdinal], bounds); }
     catch (error) {
       if (!(error instanceof EvidenceError)) throw error;
+      completeLockIndexes = false;
       findings.push(finding(error.code === 'limit-exceeded' ? 'limit-exceeded' : 'lock-invalid', file, error.pointer));
       continue;
     }
@@ -152,7 +153,7 @@ export function reportDependencyAge(input, options = {}) {
       else { row.observedReleases365d = count; checked++; }
     }
   }
-  if (subjects === 0) findings.push(finding('no-subject', 'input', '/locks'));
+  if (subjects === 0 && completeLockIndexes) findings.push(finding('no-subject', 'input', '/locks'));
   let ended;
   try { ended = now(); } catch { throw new ConfigError(); }
   if (!Number.isFinite(ended) || ended < started) throw new ConfigError();

@@ -48,7 +48,7 @@ Report rows use `lock-0`, `lock-1`, and so on, plus `/packages/@N`, where `N` is
 | `limit-exceeded` | warning | A byte, count, structure or time bound was crossed. |
 | `age-review-candidate` | error | Recorded-release age at snapshot exceeded the optional threshold; not a vulnerability claim. |
 
-Warnings make overall status `incomplete`, even beside a proven review candidate. Complete evidence with an active candidate is `fail`; complete evidence without one is `pass`. A pass has nonzero checks.
+Warnings make overall status `incomplete`, even beside a proven review candidate. `no-subject` is emitted only after every supplied lock index validates and the combined installed-member set is genuinely empty; an invalid or over-limit lock leaves membership unknown. Complete evidence with an active candidate is `fail`; complete evidence without one is `pass`. A pass has nonzero checks.
 
 ## Exit codes and bounds
 
